@@ -17,6 +17,8 @@ jobs:
         os: [macos-15, macos-15-intel, ubuntu-24.04, ubuntu-24.04-arm]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -26,10 +28,17 @@ jobs:
         id: homebrew
         with:
           stable: true
-      - name: Verify the tested tap revision
+      - name: Select and verify the exact tested tap revision
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: test "$(git -C "$(brew --repository oresoftware/tap)" rev-parse HEAD)" = "$EXPECTED_SHA"
+        shell: bash
+        run: |
+          set -euo pipefail
+          tap="$(brew --repository oresoftware/tap)"
+          test -z "$(git -C "$tap" status --porcelain)"
+          git -C "$tap" fetch --no-tags origin "$EXPECTED_SHA"
+          git -C "$tap" checkout --detach "$EXPECTED_SHA"
+          test "$(git -C "$tap" rev-parse HEAD)" = "$EXPECTED_SHA"
       - name: Validate formula syntax
         run: ruby -c "$(brew --repository oresoftware/tap)/Formula/zed-cli.rb"
       - name: Fetch with SHA-256 verification and install the release
