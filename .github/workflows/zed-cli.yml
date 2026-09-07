@@ -1,0 +1,51 @@
+name: zed-cli Homebrew installation
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: zed-cli-homebrew-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  install:
+    name: Homebrew / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel, ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: Homebrew/actions/setup-homebrew@f8d4222eb633e65c2a0157383cf80861fc7fae7f
+        id: homebrew
+        with:
+          stable: true
+      - name: Verify the tested tap revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git -C "$(brew --repository oresoftware/tap)" rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Validate formula syntax
+        run: ruby -c "$(brew --repository oresoftware/tap)/Formula/zed-cli.rb"
+      - name: Fetch with SHA-256 verification and install the release
+        run: brew install --formula oresoftware/tap/zed-cli
+      - name: Test installed commands
+        run: brew test oresoftware/tap/zed-cli
+      - name: Verify a clean reinstall
+        run: |
+          brew reinstall oresoftware/tap/zed-cli
+          brew test oresoftware/tap/zed-cli
+      - name: Verify uninstall
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew uninstall oresoftware/tap/zed-cli
+          if brew list --versions oresoftware/tap/zed-cli; then
+            echo 'zed-cli remained installed after uninstall' >&2
+            exit 1
+          fi
