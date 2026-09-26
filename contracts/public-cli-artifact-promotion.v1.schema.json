@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oresoftware.github.io/homebrew-tap/contracts/public-cli-artifact-promotion.v1.schema.json",
+  "title": "Public CLI artifact promotion receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "cli",
+    "version",
+    "source",
+    "private_artifact",
+    "public_artifact",
+    "formula",
+    "byte_identical"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ores.homebrew.cli-promotion/v1"
+    },
+    "cli": {
+      "enum": ["ores-stack", "bmscl", "bmscl-gleam", "scintilla"]
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "tag", "commit"],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+          "maxLength": 256
+        },
+        "tag": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/+~-]*$"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      }
+    },
+    "private_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filename", "sha256", "target"],
+      "properties": {
+        "filename": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "target": {
+          "enum": [
+            "aarch64-apple-darwin",
+            "x86_64-apple-darwin",
+            "aarch64-unknown-linux-gnu",
+            "x86_64-unknown-linux-gnu",
+            "x86_64-pc-windows-msvc"
+          ]
+        }
+      }
+    },
+    "public_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "filename", "sha256", "public_access_verified"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 9,
+          "maxLength": 2048,
+          "pattern": "^https://[^?\\s]+$"
+        },
+        "filename": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "public_access_verified": {
+          "const": true
+        }
+      }
+    },
+    "formula": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "os", "arch"],
+      "properties": {
+        "name": {
+          "enum": ["ores-stack", "bmscl", "bmscl-gleam", "scintilla"]
+        },
+        "os": {
+          "const": "macos"
+        },
+        "arch": {
+          "enum": ["arm64", "x86_64"]
+        }
+      }
+    },
+    "byte_identical": {
+      "const": true
+    }
+  }
+}
