@@ -1,0 +1,27 @@
+{
+  "schema_version": "ores.homebrew.cli-promotion/v1",
+  "cli": "bmscl",
+  "version": "1.2.3",
+  "source": {
+    "repository": "beamscale/bmscl-cli",
+    "tag": "v1.2.3",
+    "commit": "0123456789abcdef0123456789abcdef01234567"
+  },
+  "private_artifact": {
+    "filename": "bmscl-macos-arm64.tar.gz",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "target": "aarch64-apple-darwin"
+  },
+  "public_artifact": {
+    "url": "https://cli-artifacts.example.invalid/bmscl/v1.2.3/bmscl-macos-arm64.tar.gz",
+    "filename": "bmscl-macos-arm64.tar.gz",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "public_access_verified": true
+  },
+  "formula": {
+    "name": "bmscl",
+    "os": "macos",
+    "arch": "arm64"
+  },
+  "byte_identical": true
+}
