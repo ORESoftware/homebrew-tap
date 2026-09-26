@@ -1,0 +1,94 @@
+name: Homebrew formula contract
+
+on:
+  pull_request:
+    paths:
+      - "Formula/**"
+      - ".github/workflows/formula-ci.yml"
+      - "docs/cli-distribution.md"
+  push:
+    branches: [main]
+    paths:
+      - "Formula/**"
+      - ".github/workflows/formula-ci.yml"
+      - "docs/cli-distribution.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: formula-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  formulas:
+    name: formula contract / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: Homebrew/actions/setup-homebrew@f8d4222eb633e65c2a0157383cf80861fc7fae7f
+        with:
+          stable: true
+      - name: Select exact tap revision
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          tap="$(brew --repository oresoftware/tap)"
+          git -C "$tap" fetch --no-tags origin "$EXPECTED_SHA"
+          git -C "$tap" checkout --detach "$EXPECTED_SHA"
+          test "$(git -C "$tap" rev-parse HEAD)" = "$EXPECTED_SHA"
+          test -z "$(git -C "$tap" status --porcelain)"
+      - name: Select candidate CLI formulas
+        id: formulas
+        shell: bash
+        run: |
+          set -euo pipefail
+          tap="$(brew --repository oresoftware/tap)"
+          candidates=(bmscl bmscl-gleam scintilla ores-stack)
+          selected=()
+          for name in "${candidates[@]}"; do
+            if [[ -f "$tap/Formula/$name.rb" ]]; then
+              selected+=("$name")
+            fi
+          done
+          {
+            echo 'names<<EOF'
+            printf '%s\n' "${selected[@]}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+      - name: Audit, install, test, reinstall and uninstall
+        if: steps.formulas.outputs.names != ''
+        shell: bash
+        env:
+          FORMULAS: ${{ steps.formulas.outputs.names }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r name; do
+            [[ -n "$name" ]] || continue
+            formula="oresoftware/tap/$name"
+            path="$(brew --repository oresoftware/tap)/Formula/$name.rb"
+            ruby -c "$path"
+            brew audit --strict "$formula"
+            brew install --formula "$formula"
+            brew test "$formula"
+            brew reinstall "$formula"
+            brew test "$formula"
+            brew uninstall "$formula"
+            if brew list --versions "$formula"; then
+              echo "$formula remained installed after uninstall" >&2
+              exit 1
+            fi
+          done <<< "$FORMULAS"
