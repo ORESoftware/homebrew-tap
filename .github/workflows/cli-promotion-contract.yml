@@ -1,0 +1,85 @@
+name: CLI promotion contract
+
+on:
+  pull_request:
+    paths:
+      - "contracts/public-cli-artifact-promotion.v1.tsp"
+      - "contracts/public-cli-artifact-promotion.v1.schema.json"
+      - "contracts/fixtures/public-cli-artifact-promotion.*.json"
+      - "tools/verify-promotion-receipt.rb"
+      - ".github/workflows/cli-promotion-contract.yml"
+  push:
+    branches: [main]
+    paths:
+      - "contracts/public-cli-artifact-promotion.v1.tsp"
+      - "contracts/public-cli-artifact-promotion.v1.schema.json"
+      - "contracts/fixtures/public-cli-artifact-promotion.*.json"
+      - "tools/verify-promotion-receipt.rb"
+      - ".github/workflows/cli-promotion-contract.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cli-promotion-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Syntax-check verifier and JSON authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby -c tools/verify-promotion-receipt.rb
+          ruby -rjson -e 'JSON.parse(File.read(ARGV.fetch(0)))' contracts/public-cli-artifact-promotion.v1.schema.json
+      - name: Check peer authority vocabulary
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby <<'RUBY'
+          require "json"
+
+          schema = JSON.parse(File.read("contracts/public-cli-artifact-promotion.v1.schema.json"))
+          typespec = File.read("contracts/public-cli-artifact-promotion.v1.tsp")
+          expected = %w[
+            schema_version
+            cli
+            version
+            source
+            private_artifact
+            public_artifact
+            formula
+            byte_identical
+          ]
+
+          required = schema.fetch("required").sort
+          abort("JSON Schema required fields drifted: #{required.inspect}") unless required == expected.sort
+          expected.each do |field|
+            abort("TypeSpec authority missing #{field}") unless typespec.include?("#{field}:")
+          end
+          abort("TypeSpec authority lost v1 identity") unless typespec.include?("ores.homebrew.cli-promotion/v1")
+          RUBY
+      - name: Accept an exact byte-identical promotion
+        run: ruby tools/verify-promotion-receipt.rb contracts/fixtures/public-cli-artifact-promotion.valid.json
+      - name: Reject a rebuilt public artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ruby tools/verify-promotion-receipt.rb contracts/fixtures/public-cli-artifact-promotion.digest-mismatch.invalid.json; then
+            echo "digest mismatch fixture unexpectedly passed" >&2
+            exit 1
+          fi
+      - name: Reject signed or token-bearing public URLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ruby tools/verify-promotion-receipt.rb contracts/fixtures/public-cli-artifact-promotion.signed-url.invalid.json; then
+            echo "signed URL fixture unexpectedly passed" >&2
+            exit 1
+          fi
