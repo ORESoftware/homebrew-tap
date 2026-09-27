@@ -66,7 +66,9 @@ jobs:
           done
           {
             echo 'names<<EOF'
-            printf '%s\n' "${selected[@]}"
+            if (( ${#selected[@]} > 0 )); then
+              printf '%s\n' "${selected[@]}"
+            fi
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
       - name: Audit, install, test, reinstall and uninstall
